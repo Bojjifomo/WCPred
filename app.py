@@ -170,6 +170,18 @@ def strip_vig(*odds):
 def ev(prob, odds):
     return prob * odds - 1.0
 
+def _clamp_odds(v, lo=1.01, hi=100000.0):
+    """Jaga default fair-odds dalam rentang number_input (garis dalam bisa hasilkan
+    fair odds ribuan, mis. underdog -4)."""
+    try:
+        v = float(v)
+    except Exception:
+        return lo
+    if not (v == v):  # NaN
+        return lo
+    return max(lo, min(hi, v))
+
+
 # ---------- UI ----------
 st.set_page_config(page_title="Analisa Timnas — Dixon-Coles v2",
                    layout="wide", page_icon="⚽")
@@ -282,9 +294,9 @@ st.caption("Masukkan odds desimal dari papan. Vig dibuang otomatis, EV dihitung 
 t1, t2, t3 = st.tabs(["1X2", "Asian Handicap", "Over/Under"])
 with t1:
     a, b, c = st.columns(3)
-    o1 = a.number_input(f"{home} menang", 1.01, 99.0, round(1/r["home"], 2), 0.01)
-    ox = b.number_input("Seri", 1.01, 99.0, round(1/r["draw"], 2), 0.01)
-    o2 = c.number_input(f"{away} menang", 1.01, 99.0, round(1/r["away"], 2), 0.01)
+    o1 = a.number_input(f"{home} menang", 1.01, 100000.0, _clamp_odds(round(1/r["home"], 2)), 0.01)
+    ox = b.number_input("Seri", 1.01, 100000.0, _clamp_odds(round(1/r["draw"], 2)), 0.01)
+    o2 = c.number_input(f"{away} menang", 1.01, 100000.0, _clamp_odds(round(1/r["away"], 2)), 0.01)
     if st.button("Hitung EV 1X2"):
         (f1, fx, f2), vig = strip_vig(o1, ox, o2)
         evs = [ev(r["home"], o1), ev(r["draw"], ox), ev(r["away"], o2)]
@@ -303,10 +315,10 @@ with t2:
     L = st.selectbox("Line (handicap pada Tim A)",
                      [-4.0, -3.5, -3.0, -2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0], index=2)
     d1, d2 = st.columns(2)
-    oh = d1.number_input(f"Odds {home} (des)", 1.01, 99.0,
-                         round(ah_fair(M, L, "home")["fair_odds"], 2), 0.01)
-    oa = d2.number_input(f"Odds {away} (des)", 1.01, 99.0,
-                         round(ah_fair(M, -L, "away")["fair_odds"], 2), 0.01)
+    oh = d1.number_input(f"Odds {home} (des)", 1.01, 100000.0,
+                         _clamp_odds(round(ah_fair(M, L, "home")["fair_odds"], 2)), 0.01)
+    oa = d2.number_input(f"Odds {away} (des)", 1.01, 100000.0,
+                         _clamp_odds(round(ah_fair(M, -L, "away")["fair_odds"], 2)), 0.01)
     if st.button("Hitung EV Handicap"):
         ph = ah_fair(M, L, "home")["win_prob"]; pa = ah_fair(M, -L, "away")["win_prob"]
         (_, _), vig = strip_vig(oh, oa)
@@ -321,10 +333,10 @@ with t2:
 with t3:
     L = st.selectbox("Line OU", [1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.5], index=4)
     d1, d2 = st.columns(2)
-    oo = d1.number_input("Odds Over (des)", 1.01, 99.0,
-                         round(ou_fair(M, L, "over")["fair_odds"], 2), 0.01)
-    ou_ = d2.number_input("Odds Under (des)", 1.01, 99.0,
-                          round(ou_fair(M, L, "under")["fair_odds"], 2), 0.01)
+    oo = d1.number_input("Odds Over (des)", 1.01, 100000.0,
+                         _clamp_odds(round(ou_fair(M, L, "over")["fair_odds"], 2)), 0.01)
+    ou_ = d2.number_input("Odds Under (des)", 1.01, 100000.0,
+                          _clamp_odds(round(ou_fair(M, L, "under")["fair_odds"], 2)), 0.01)
     if st.button("Hitung EV Over/Under"):
         po = ou_fair(M, L, "over")["win_prob"]; pu = ou_fair(M, L, "under")["win_prob"]
         (_, _), vig = strip_vig(oo, ou_)
