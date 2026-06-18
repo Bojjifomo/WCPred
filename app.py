@@ -288,6 +288,106 @@ with cou:
         hide_index=True, use_container_width=True)
 
 st.divider()
+st.subheader("🎯 Cek bet kamu — input taruhan, model kasih verdict")
+st.caption("Masukkan taruhan yang kamu pertimbangkan (garis + odds bandar). "
+           "Model hitung fair value & EV tiap baris, lalu verdict per-bet: "
+           "GAS (EV+) atau SKIP (EV<=0). Kalau semua SKIP, artinya tak ada value — "
+           "itu jawaban yang sah, bukan kegagalan. Tool ini TIDAK akan memaksa "
+           "memilih 'yang terbaik' dari pilihan yang semuanya jelek.")
+
+bet_market = st.radio("Jenis pasar", ["Asian Handicap", "Over / Under"],
+                      horizontal=True, key="betmarket")
+
+if bet_market == "Asian Handicap":
+    st.markdown("**Input taruhan handicap** — pilih tim, garis, dan odds dari papan bandar.")
+    n_bets = st.number_input("Berapa taruhan mau dicek?", 1, 8, 1, 1, key="nbet_ah")
+    bets = []
+    for idx in range(int(n_bets)):
+        col_t, col_l, col_o = st.columns([2, 2, 2])
+        team = col_t.selectbox(f"#{idx+1} Tim", [home, away], key=f"ah_team_{idx}")
+        line = col_l.selectbox(f"#{idx+1} Garis (pada tim itu)",
+                               [-4.0, -3.5, -3.0, -2.5, -2.0, -1.75, -1.5, -1.25,
+                                -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75,
+                                1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0],
+                               index=10, key=f"ah_line_{idx}")
+        odds = col_o.number_input(f"#{idx+1} Odds bandar (desimal)", 1.01, 100000.0,
+                                  1.90, 0.01, key=f"ah_odds_{idx}")
+        bets.append((team, line, odds))
+    if st.button("Cek verdict handicap", key="btn_ah_verdict"):
+        rows = []
+        for team, line, odds in bets:
+            if team == home:
+                res = ah_fair(M, line, "home")
+            else:
+                # User memilih garis PADA tim away dengan tanda intuitif
+                # (+0.5 = away dapat handicap). Fungsi away pakai konvensi
+                # terbalik, jadi balik tandanya: away +L  ->  ah_fair(M, -L, away).
+                res = ah_fair(M, -line, "away")
+            wp = res["win_prob"]; fair = res["fair_odds"]
+            e = ev(wp, odds)
+            verdict = "✅ GAS" if e > 0 else "⛔ SKIP"
+            rows.append({"Taruhan": f"{team} {line:+.2f}",
+                         "Odds kamu": odds,
+                         "Fair odds": fair,
+                         "Model win%": wp,
+                         "EV": e,
+                         "Verdict": verdict})
+        dfb = pd.DataFrame(rows)
+        st.dataframe(dfb.style.format({"Odds kamu": "{:.2f}", "Fair odds": "{:.2f}",
+                     "Model win%": "{:.1%}", "EV": "{:+.1%}"}),
+                     hide_index=True, use_container_width=True)
+        n_gas = sum(1 for r in rows if "GAS" in r["Verdict"])
+        if n_gas == 0:
+            st.success("⛔ SEMUA SKIP — tidak ada taruhan dengan EV positif. "
+                       "Harga bandar adil/di bawah fair. Tak ada value = jawaban sah.")
+        else:
+            best = max(rows, key=lambda r: r["EV"])
+            st.warning(f"{n_gas} taruhan EV+. Tertinggi: **{best['Taruhan']}** "
+                       f"(EV {best['EV']:+.1%}, odds {best['Odds kamu']:.2f} vs fair "
+                       f"{best['Fair odds']:.2f}). Ingat: EV+ dari satu match besar "
+                       "sering = line stale/model buta lineup. Cek dulu sebelum percaya.")
+
+else:
+    st.markdown("**Input taruhan Over/Under** — pilih garis, sisi, dan odds dari papan.")
+    n_bets = st.number_input("Berapa taruhan mau dicek?", 1, 8, 1, 1, key="nbet_ou")
+    bets = []
+    for idx in range(int(n_bets)):
+        col_l, col_s, col_o = st.columns([2, 2, 2])
+        line = col_l.selectbox(f"#{idx+1} Garis total gol",
+                               [0.5, 1.0, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 3.5, 4.0, 4.5],
+                               index=5, key=f"ou_line_{idx}")
+        side = col_s.selectbox(f"#{idx+1} Sisi", ["Over", "Under"], key=f"ou_side_{idx}")
+        odds = col_o.number_input(f"#{idx+1} Odds bandar (desimal)", 1.01, 100000.0,
+                                  1.90, 0.01, key=f"ou_odds_{idx}")
+        bets.append((line, side, odds))
+    if st.button("Cek verdict Over/Under", key="btn_ou_verdict"):
+        rows = []
+        for line, side, odds in bets:
+            res = ou_fair(M, line, side.lower())
+            wp = res["win_prob"]; fair = res["fair_odds"]
+            e = ev(wp, odds)
+            verdict = "✅ GAS" if e > 0 else "⛔ SKIP"
+            rows.append({"Taruhan": f"{side} {line}",
+                         "Odds kamu": odds,
+                         "Fair odds": fair,
+                         "Model %": wp,
+                         "EV": e,
+                         "Verdict": verdict})
+        dfb = pd.DataFrame(rows)
+        st.dataframe(dfb.style.format({"Odds kamu": "{:.2f}", "Fair odds": "{:.2f}",
+                     "Model %": "{:.1%}", "EV": "{:+.1%}"}),
+                     hide_index=True, use_container_width=True)
+        n_gas = sum(1 for r in rows if "GAS" in r["Verdict"])
+        if n_gas == 0:
+            st.success("⛔ SEMUA SKIP — tidak ada sisi dengan EV positif. "
+                       "Tak ada value = jawaban sah.")
+        else:
+            best = max(rows, key=lambda r: r["EV"])
+            st.warning(f"{n_gas} taruhan EV+. Tertinggi: **{best['Taruhan']}** "
+                       f"(EV {best['EV']:+.1%}). Ingat: EV+ di laga populer sering "
+                       "= line stale/model meleset. Curigai dulu, jangan langsung gas.")
+
+st.divider()
 st.subheader("Cek EV vs harga pasar (opsional)")
 st.caption("Masukkan odds desimal dari papan. Vig dibuang otomatis, EV dihitung "
            "per sisi. Verdict jujur — bukan ajakan taruhan.")
