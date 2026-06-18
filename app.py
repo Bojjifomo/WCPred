@@ -259,7 +259,7 @@ cah, cou = st.columns(2)
 with cah:
     st.subheader("Asian Handicap — fair odds")
     rows = []
-    for L in [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0]:
+    for L in [-4.0, -3.5, -3.0, -2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0]:
         rows.append({"Line (pada A)": f"{L:+.2f}",
                      home: ah_fair(M, L, "home")["fair_odds"],
                      away: ah_fair(M, -L, "away")["fair_odds"]})
@@ -301,7 +301,7 @@ with t1:
                        "model meleset, atau selisih < presisi model dulu.")
 with t2:
     L = st.selectbox("Line (handicap pada Tim A)",
-                     [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0], index=2)
+                     [-4.0, -3.5, -3.0, -2.5, -2.0, -1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0], index=2)
     d1, d2 = st.columns(2)
     oh = d1.number_input(f"Odds {home} (des)", 1.01, 99.0,
                          round(ah_fair(M, L, "home")["fair_odds"], 2), 0.01)
